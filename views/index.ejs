@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf8" />
+	<title>KETI</title>
+	<style>
+		body{
+			background: white;
+		}
+		.box{
+			border: 3px solid #E5E5E5;
+			margin: 5px;
+			background: white;
+			box-shadow: 5px 5px 5px gray;
+		}
+	</style>
+
+	<script src="jquery/dist/jquery.js"></script>
+	<script src="socket.io-client/dist/socket.io.js"></script>
+	<script>
+		var idcount = 0;
+		var socket = io();
+		socket.on('connect', function(){
+			console.log('Server Connected');
+		});
+
+		// - Creating new element. element attribute name is name of the selected port. -
+		function myClick(){
+			socket.emit('portName', {portName: $('#port-sbox').val()});
+			var box = '<div id="box'+idcount+'" class="box" style="display:inline-block" draggable="true" ondragstart="drag(event);" ondrop="drop(event);" ondragover="allowDrop(event)" ondragenter="enter(event);" ondragleave="leave(event);">';
+			box += '<table><tbody><tr><td>'+$("#port-sbox").val()+'</td>';
+			box += '<td style="text-align:center;"><span onClick="delete_box(this)" style="cursor:pointer;">X</span></td></tr><tr><td colspan="2">';
+			box += '<textarea readonly cols="40" rows="20" name="'+$("#port-sbox").val()+'"></textarea>';
+			box += '</td></tr></tbody></table></div>'
+			$(box).appendTo('#monitorWrap');
+			idcount++;
+		}
+		// - Receive new data. Appends data to elements. - 
+		socket.on('data', function(data){
+			var datas = data.portInfo.split(':');
+			var portName = datas[0];
+			var value = datas[1];
+			var monitors = document.getElementsByName(portName);
+			if(monitors.length == 0){
+				socket.emit('closePort', {portName:portName});
+			}
+			for(var i = 0; i < monitors.length; i++){
+				monitors[i].value += portName + ' : ' + value;
+				monitors[i].value += '\n';
+			}
+		});
+
+		function delete_box(e){
+			var wrap = document.getElementById('monitorWrap');
+			wrap.removeChild(e.parentNode.parentNode.parentNode.parentNode.parentNode);
+			var portName = e.parentNode.parentNode.parentNode.getElementsByTagName('textarea')[0].getAttribute('name');
+			var monitors = document.getElementsByName(portName);
+			if(monitors.length == 0){
+				socket.emit('closePort', {portName:portName});
+			}
+		}
+
+		var dragindex = 0;
+		var clone;
+
+		function drag(e){
+			e.dataTransfer.setData("text", e.currentTarget.id);
+		}
+
+		function allowDrop(e){
+			e.preventDefault();
+		}
+
+		function enter(e){
+			e.preventDefault();
+			var box = e.currentTarget;
+			box.style.border = '3px dashed #303960';
+		}
+
+		function leave(e){
+			e.preventDefault();
+			var box = e.currentTarget;
+			box.style.border = '3px solid #E5E5E5';
+		}
+
+		function drop(e){
+			e.preventDefault();
+			var wrap = document.getElementById('monitorWrap');
+			clone = e.currentTarget.cloneNode(true);
+			var selectId = e.dataTransfer.getData("text");
+			var selectNode = document.getElementById(selectId);
+			var nodelist = wrap.childNodes;
+			for(var i=0; i<nodelist.length; i++){
+				if(nodelist[i].id === selectId){dragindex = i;}
+			}
+			wrap.replaceChild(selectNode, e.currentTarget);
+			wrap.insertBefore(clone, nodelist[dragindex]);
+			selectNode.style.border = '3px solid #E5E5E5';
+			clone.style.border = '3px solid #E5E5E5';
+		}
+		
+	</script>
+</head>
+<body>
+<h1>Select SerialPort</h1>
+<span id="wrap">
+	<span id = "select-div">
+		<select id = "port-sbox" name = "port">
+			<optgroup>
+			<% for (var i = 0; i < portList.length; i++){ %>
+				<option value="<%= portList[i] %>"><%= portList[i] %></option>
+			<% } %>
+			</optgroup>
+		</select>
+		<input type="button" value="Connect" onclick="myClick()">
+	</span>
+	<div>
+		<span id="monitorWrap" class="dragContainer"></span>
+	</div>
+</span>
+</body>
+</html>
